@@ -366,10 +366,10 @@ spec:
       envoyDeployment:
         container:
           env:
-          - name: env_a
-            value: env_a_value
-          - name: env_b
-            value: env_b_value
+            - name: env_a
+              value: env_a_value
+            - name: env_b
+              value: env_b_value
 ```
 
 {{% /tab %}}
@@ -429,14 +429,14 @@ spec:
       envoyDeployment:
         container:
           volumeMounts:
-          - mountPath: /certs
-            name: certs
-            readOnly: true
+            - mountPath: /certs
+              name: certs
+              readOnly: true
         pod:
           volumes:
-          - name: certs
-            secret:
-              secretName: envoy-cert
+            - name: certs
+              secret:
+                secretName: envoy-cert
 ```
 
 {{% /tab %}}
@@ -498,13 +498,14 @@ After applying the config, you can get the envoyproxy service, and see annotatio
 ## Customize EnvoyProxy Bootstrap Config
 
 You can customize the EnvoyProxy bootstrap config via EnvoyProxy Config.
-There are two ways to customize it:
+There are three ways to customize it:
 
 * Replace: the whole bootstrap config will be replaced by the config you provided.
 * Merge: the config you provided will be merged into the default bootstrap config.
+* JSONPatch: the list of JSON Patches you provided will be applied to the bootstrap config. JSON Patch is a standard format specified in [RFC 6902](https://datatracker.ietf.org/doc/html/rfc6902/).
 
 {{< tabpane text=true >}}
-{{% tab header="Apply from stdin" %}}
+{{% tab header="Replace: apply from stdin" %}}
 
 ```shell
 cat <<EOF | kubectl apply -f -
@@ -591,7 +592,7 @@ EOF
 ```
 
 {{% /tab %}}
-{{% tab header="Apply from file" %}}
+{{% tab header="Replace: apply from file" %}}
 Save and apply the following resource to your cluster:
 
 ```yaml
@@ -678,6 +679,44 @@ spec:
 ```
 
 {{% /tab %}}
+{{% tab header="JSONPatch: apply from stdin" %}}
+Save and apply the following resource to your cluster:
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: custom-proxy-config
+  namespace: default 
+spec:
+  bootstrap:
+    type: JSONPatch
+    jsonPatches:
+    - {"op": "add", "path": "/static_resources/clusters/0/dns_lookup_family", "value": "V4_ONLY"}
+    - {"op": "replace", "path": "/admin/address/socket_address/port_value", "value": 9901}
+EOF
+```
+
+{{% /tab %}}
+{{% tab header="JSONPatch: apply from file" %}}
+Save and apply the following resource to your cluster:
+```yaml
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: custom-proxy-config
+  namespace: default
+spec:
+  bootstrap:
+    type: JSONPatch
+    jsonPatches:
+      - {"op": "add", "path": "/static_resources/clusters/0/dns_lookup_family", "value": "V4_ONLY"}
+      - {"op": "replace", "path": "/admin/address/socket_address/port_value", "value": 9901}
+```
+
+{{% /tab %}}
 {{< /tabpane >}}
 
 You can use [egctl translate][]
@@ -730,7 +769,7 @@ apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
   name: custom-proxy-config
-  namespace: default 
+  namespace: default
 spec:
   provider:
     type: Kubernetes
@@ -783,7 +822,7 @@ apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
   name: custom-proxy-config
-  namespace: default 
+  namespace: default
 spec:
   extraArgs:
     - --disable-extensions envoy.access_loggers/envoy.access_loggers.wasm 
@@ -858,16 +897,16 @@ spec:
               template:
                 spec:
                   containers:
-                  - name: envoy
-                    resources:
-                      limits:
-                        cpu: 500m
-                        memory: 1024Mi
-                  - name: shutdown-manager
-                    resources:
-                      limits:
-                        cpu: 200m
-                        memory: 1024Mi
+                    - name: envoy
+                      resources:
+                        limits:
+                          cpu: 500m
+                          memory: 1024Mi
+                    - name: shutdown-manager
+                      resources:
+                        limits:
+                          cpu: 200m
+                          memory: 1024Mi
 ```
 
 {{% /tab %}}
@@ -951,7 +990,7 @@ By default, Envoy Gateway applies the following filters in the order shown:
 * envoy.filters.http.ratelimit
 * envoy.filters.http.router
 
-The default order in which these filters are applied is opinionated and may not suit all use cases. 
+The default order in which these filters are applied is opinionated and may not suit all use cases.
 To address this, Envoy Gateway allows you to adjust the execution order of these filters with the `filterOrder` field in the [EnvoyProxy][] resource.
 
 `filterOrder` is a list of customized filter order configurations. Each configuration can specify a filter
